@@ -3,6 +3,8 @@ import sdl2
 import sdl2.ext
 import os
 
+from sdl2.ext.compat import isiterable
+
 
 def load_image(name, colorkey=None, convert=None):
     fullname = os.path.join(name)
@@ -42,10 +44,19 @@ class note_sprite(sdl2.ext.Entity):
         self.sprite.position = posx, posy
 
 
+class Velocity(object):
+    def __init__(self):
+        super(Velocity, self).__init__()
+        self.vx = 0
+        self.vy = 0
+
+
 class Note(sdl2.ext.Applicator):
     def __init__(self):
         super().__init__()
+        print(self.componenttypes)
         self.componenttypes = note_sprite, sdl2.ext.Sprite
+        print(self.componenttypes)
 
     def start_timer(self):
         self.status = True
@@ -59,11 +70,13 @@ class Note(sdl2.ext.Applicator):
     def get_ticks(self):
         return sdl2.timer.SDL_GetTicks() - self.startTicks
 
-
     def process(self, world, componentsets):
-        for note_sprite, sprite in componentsets:
+        collitems = [comp for comp in componentsets if self._overlap(comp)]
+        print(collitems)
+        for sprite in componentsets:
+            print(sprite)
+            print("smh")
             sprite.x += 50
-
 
 
 def run():
@@ -80,7 +93,7 @@ def run():
 
 
     factory = sdl2.ext.SpriteFactory(sdl2.ext.SOFTWARE)
-    sp_ball = load_image("screenshot023.png")
+    sp_ball = factory.from_image("screenshot023.png")
     note_sp = note_sprite(world, sp_ball)
     window.show()
     running = True
@@ -104,6 +117,7 @@ def run():
                 break
         world.process()
     return 0
+
 
 
 if __name__ == "__main__":
