@@ -1,4 +1,6 @@
 import sys
+from ctypes.wintypes import RGB
+
 import sdl2
 import sdl2.ext
 import os
@@ -44,54 +46,66 @@ class note_sprite(sdl2.ext.Entity):
         self.sprite.position = posx, posy
 
 
-class game_pr():
+class game_process():
     def __init__(self, world):
-        # for i in range(10):
-        #     n.append(Note())
-        note = Note()
-        world.add_system(note)
-        sdl2.ext.init()
-        factory = sdl2.ext.SpriteFactory(sdl2.ext.SOFTWARE)
-        sp_ball = factory.from_image("screenshot023.png")
-        note_sp = note_sprite(world, sp_ball)
-        note.note = note_sp
+        # f = map(open("map.txt").read().split(), int)
+        f = [[3], [5], [7], [8]]
+        n = []
+        timer = Timer()
+        for i in f:
+            note = Note(i[0])
+            world.add_system(note)
+            factory = sdl2.ext.SpriteFactory(sdl2.ext.SOFTWARE)
+            sp_ball = factory.from_image("approachcircle.png")
+            a = load_image("approachcircle.png")
+            sdl2.surface.SDL_SetColorKey(sp_ball, RGB(255,0,255), sdl2.SDL_MapRGB(format, 0, 0, 0))
+            note_sp = note_sprite(world, sp_ball, posx=(100 + i[0] * 100), posy=(900 - i[0] * 100))
+            note_sp.timer = timer
+            note.note = note_sp
+
+
         running = True
         while running:
             events = sdl2.ext.get_events()
-
             for event in events:
                 if event.key.keysym.sym == sdl2.SDLK_z:
-                    note.start_timer()
+
                     print("n")
                 if event.type == sdl2.SDL_MOUSEBUTTONDOWN:
                     motion = event.motion
                     print(motion.x, motion.y)
                     print(sdl2.timer.SDL_GetTicks() / 1000)
-                    print(note.get_ticks() / 1000)
+                if event.key.keysym.sym == sdl2.SDLK_r:
+                    running = False
+                    break
                 if event.type == sdl2.SDL_QUIT:
                     running = False
                     break
             world.process()
 
 
-
-class Note(sdl2.ext.Applicator):
+class Timer(object):
     def __init__(self):
         super().__init__()
-        self.componenttypes = note_sprite, sdl2.ext.Sprite
-        self.note = None
-
-    def start_timer(self):
         self.status = True
         self.paused = False
         self.startTicks = sdl2.timer.SDL_GetTicks()
 
-    # def stop(self):
-    #     self.status = False
-    #     self.paused = False
+    def stop(self):
+        self.status = False
+        self.paused = False
 
     def get_ticks(self):
-        return sdl2.timer.SDL_GetTicks() - self.startTicks
+        return (sdl2.timer.SDL_GetTicks() - self.startTicks) // 1000
+
+
+class Note(sdl2.ext.Applicator):
+    def __init__(self, time):
+        super().__init__()
+        self.componenttypes = Timer, note_sprite, sdl2.ext.Sprite
+        self.note = None
+        self.time = time
+        self.is_active = False
 
     def _overlap(self, item):
         pos, sprite = item
@@ -99,26 +113,21 @@ class Note(sdl2.ext.Applicator):
         return (right,  left, top, bottom)
 
     def process(self, world, componentsets):
-        collitems = [comp for comp in componentsets if self._overlap(comp)]
-        print(self.note.sprite.x)
-        for sprite in componentsets:
-            print(sprite)
-            print("smh")
-            self.note.sprite.x += 50
+        if self.time - self.note.timer.get_ticks():
+            print(self.note.timer.get_ticks(), self.time, self.note.sprite.sdl2.surface.SDL_GetColorKey())
+            self.is_active = True
+        # print(self.note.sprite.x)
 
 
 def run():
+    sdl2.ext.init()
     window = sdl2.ext.Window("The Pong Game", size=(1600, 900))
-    world = sdl2.ext.World()
-    # f = map(open("map.txt").read().split(), int)
-
+    menu = sdl2.ext.World()
+    gameplay = sdl2.ext.World()
 
     spriterenderer = SoftwareRenderer(window)
-    world.add_system(spriterenderer)
-
-    # world.delete_entities()
-
-
+    menu.add_system(spriterenderer)
+    gameplay.add_system(spriterenderer)
 
     window.show()
     running = True
@@ -131,11 +140,11 @@ def run():
 
         for event in events:
             if event.key.keysym.sym == sdl2.SDLK_q:
-                game_pr(world)
+                game_process(gameplay)
             if event.type == sdl2.SDL_QUIT:
                 running = False
                 break
-        world.process()
+        menu.process()
     return 0
 
 
