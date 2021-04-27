@@ -1,3 +1,4 @@
+import ctypes
 import sys
 from ctypes.wintypes import RGB
 
@@ -5,7 +6,11 @@ import sdl2
 import sdl2.ext
 import os
 
+from numpy.core import uint32
+from sdl2 import surface, SDL_GetColorKey, SDL_SetColorKey
 from sdl2.ext.compat import isiterable
+from sdl2.sdlimage import IMG_Load
+from PIL import Image
 
 
 def load_image(name, colorkey=None, convert=None):
@@ -40,41 +45,37 @@ class song():
     pass
 
 
-class note_sprite(sdl2.ext.Entity):
-    def __init__(self, world, sprite, posx=100, posy=100):
-        self.sprite = sprite
-        self.sprite.position = posx, posy
-
-
 class game_process():
     def __init__(self, world):
+        self.draw_you_win()
         # f = map(open("map.txt").read().split(), int)
         f = [[3], [5], [7], [8]]
+        ar = 3
         n = []
         timer = Timer()
+
         for i in f:
-            note = Note(i[0])
+            note = Note(i[0], ar)
             world.add_system(note)
+            texture = sdl2.ext.load_image("approachcircle2.png")
+            b = sdl2.ext.Color(0xff, 0xff, 0xff)
+            SDL_SetColorKey(texture, sdl2.SDL_TRUE, b)
             factory = sdl2.ext.SpriteFactory(sdl2.ext.SOFTWARE)
-            sp_ball = factory.from_image("approachcircle.png")
-            a = load_image("approachcircle.png")
-            sdl2.surface.SDL_SetColorKey(sp_ball, RGB(255,0,255), sdl2.SDL_MapRGB(format, 0, 0, 0))
-            note_sp = note_sprite(world, sp_ball, posx=(100 + i[0] * 100), posy=(900 - i[0] * 100))
+            note_pic = factory.from_surface(texture)
+            note_sp = note_sprite(world, note_pic, posx=(100 + i[0] * 100), posy=(900 - i[0] * 100))
             note_sp.timer = timer
             note.note = note_sp
-
 
         running = True
         while running:
             events = sdl2.ext.get_events()
             for event in events:
-                if event.key.keysym.sym == sdl2.SDLK_z:
-
-                    print("n")
+                motion = None
                 if event.type == sdl2.SDL_MOUSEBUTTONDOWN:
-                    motion = event.motion
-                    print(motion.x, motion.y)
-                    print(sdl2.timer.SDL_GetTicks() / 1000)
+                    pass
+                    # motion = event.motion
+                    # print(motion.x, motion.y)
+                    # print(sdl2.timer.SDL_GetTicks() / 1000)
                 if event.key.keysym.sym == sdl2.SDLK_r:
                     running = False
                     break
@@ -82,6 +83,27 @@ class game_process():
                     running = False
                     break
             world.process()
+
+
+    def draw_you_win(self):
+        sp = []
+        image = Image.open('approachcircle.png')
+        size = image.size
+        print(size)
+        pix = image.load()
+        image2 = Image.new("RGB", size)
+        for x in range(size[0]):
+            for y in range(size[1]):
+                if pix[x, y] == (255, 255, 255, 255):
+                    image2.putpixel([x, y], (255, 255, 255, 255))
+        image2.save("approachcircle2.png")
+
+
+class note_sprite(sdl2.ext.Entity):
+    def __init__(self, world, sprite, posx=100, posy=100):
+        self.sprite = sprite
+        self.sprite.position = posx, posy
+
 
 
 class Timer(object):
@@ -100,23 +122,46 @@ class Timer(object):
 
 
 class Note(sdl2.ext.Applicator):
-    def __init__(self, time):
+    def __init__(self, time, ar):
         super().__init__()
         self.componenttypes = Timer, note_sprite, sdl2.ext.Sprite
         self.note = None
         self.time = time
         self.is_active = False
+        self.ar = ar
+        self.x, self.y = ctypes.c_int(0), ctypes.c_int(0)
+        self.flag = True
 
-    def _overlap(self, item):
-        pos, sprite = item
-        left, top, right, bottom = sprite.area
-        return (right,  left, top, bottom)
+    def check(self):
+        rx = self.x.value - (self.note.sprite.x + 70)
+        ry = self.y.value - (self.note.sprite.y + 70)
+        print(rx, ry)
+        if (rx ** 2 + ry ** 2) < 1400:
+            self.note.sprite.surface = sdl2.ext.load_image("hit300.png")
 
     def process(self, world, componentsets):
-        if self.time - self.note.timer.get_ticks():
-            print(self.note.timer.get_ticks(), self.time, self.note.sprite.sdl2.surface.SDL_GetColorKey())
-            self.is_active = True
-        # print(self.note.sprite.x)
+        if self.flag:
+            if self.time == self.note.timer.get_ticks() and not self.is_active:
+                self.is_active = True
+                self.note.sprite.surface = sdl2.ext.load_image("approachcircle.png")
+
+            if self.is_active:
+                if self.time + self.ar == self.note.timer.get_ticks():
+                    print("False")
+                    self.is_active = False
+                    self.note.world.delete(self.note)
+                    self.flag = False
+                    # b = sdl2.ext.Color(0xff, 0xff, 0xff)
+                    # SDL_SetColorKey(self.note.sprite.surface, sdl2.SDL_TRUE, b)
+                else:
+                    buttonstate = sdl2.mouse.SDL_GetMouseState(ctypes.byref(self.x), ctypes.byref(self.y))
+                    if buttonstate:
+                        self.check()
+
+
+
+
+
 
 
 def run():
@@ -128,7 +173,6 @@ def run():
     spriterenderer = SoftwareRenderer(window)
     menu.add_system(spriterenderer)
     gameplay.add_system(spriterenderer)
-
     window.show()
     running = True
     state = sdl2.mouse.SDL_GetMouseState(None, None)
