@@ -9,15 +9,10 @@ from sdl2.ext.compat import isiterable
 
 
 class Window:
-    def __init__(self, size, name, x, y, x1, y1):
+    def __init__(self, size, name):
         self.size = size
         self.name = name
         self.window = sdl2.ext.Window(self.name, size=self.size)
-        self.pos_x = x
-        self.pos_y = y
-        self.pos_x1 = x1
-        self.pos_y1 = y1
-        self.size_p = 20
 
     def fill_Window(self, color):
         r, g, b = color
@@ -130,7 +125,7 @@ class Player(sdl2.ext.Entity):
 
 
 class game_pr():
-    def __init__(self, world):
+    def suka(self, world, window):
         note = Note()
         world.add_system(note)
         sdl2.ext.init()
@@ -138,13 +133,13 @@ class game_pr():
         running = True
         flag = True
         while running:
+            events = sdl2.ext.get_events()
             note.start_timer()
             time = sdl2.timer.SDL_GetTicks() / 1000
-            if round(time) == 4 and flag is True:
-                world.run_1()
-                
             events = sdl2.ext.get_events()
             for event in events:
+                if event.key.keysym.sym == sdl2.SDLK_w:
+                    Window.run_1()
                 if event.key.keysym.sym == sdl2.SDLK_z:
                     note.start_timer()
                     print("n")
@@ -165,8 +160,6 @@ class game_pr():
 
 def run():
     window = sdl2.ext.Window("The Pong Game", size=(1600, 900))
-    window_1 = Window
-    window_1.run_1(window)
     menu = sdl2.ext.World()
     world = sdl2.ext.World()
 
@@ -197,12 +190,12 @@ def run():
                 note.start_timer()
                 print("n")
             if event.key.keysym.sym == sdl2.SDLK_q:
-                game_pr(world)
+                game_pr(world, window)
             if event.type == sdl2.SDL_MOUSEBUTTONDOWN:
                 motion = event.motion
                 print(motion.x, motion.y)
                 if motion.x >= 589 and motion.x <= 1429 and motion.y >= 218 and motion.y <= 423:
-                    game_pr(world)
+                    game_pr.suka(world, window)
             if event.type == sdl2.SDL_QUIT:
                 running = False
                 break
