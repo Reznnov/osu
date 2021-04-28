@@ -193,7 +193,9 @@ def run():
                 motion = event.motion
                 if motion.x >= 354 and motion.x <= 1382 and motion.y >= 134 and motion.y <= 538:
                     game_process(gameplay)
-
+                if motion.x >= 0 and motion.x <= 374 and motion.y >= 0 and motion.y <= 69:
+                    running = False
+                    break
             if event.type == sdl2.SDL_QUIT:
                 running = False
                 break
