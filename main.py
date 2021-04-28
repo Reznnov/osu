@@ -1,12 +1,10 @@
 import ctypes
 import sys
-from ctypes.wintypes import RGB
 
 import sdl2
 import sdl2.ext
 import os
 
-from numpy.core import uint32
 from sdl2 import surface, SDL_GetColorKey, SDL_SetColorKey
 from sdl2.ext.compat import isiterable
 from sdl2.sdlimage import IMG_Load
@@ -85,18 +83,7 @@ class game_process():
             world.process()
 
 
-    def draw_you_win(self):
-        sp = []
-        image = Image.open('approachcircle.png')
-        size = image.size
-        print(size)
-        pix = image.load()
-        image2 = Image.new("RGB", size)
-        for x in range(size[0]):
-            for y in range(size[1]):
-                if pix[x, y] == (255, 255, 255, 255):
-                    image2.putpixel([x, y], (255, 255, 255, 255))
-        image2.save("approachcircle2.png")
+
 
 
 class note_sprite(sdl2.ext.Entity):
@@ -131,6 +118,7 @@ class Note(sdl2.ext.Applicator):
         self.ar = ar
         self.x, self.y = ctypes.c_int(0), ctypes.c_int(0)
         self.flag = True
+        self.circle_im = self.draw_circle()
 
     def check(self):
         rx = self.x.value - (self.note.sprite.x + 70)
@@ -143,7 +131,7 @@ class Note(sdl2.ext.Applicator):
         if self.flag:
             if self.time == self.note.timer.get_ticks() and not self.is_active:
                 self.is_active = True
-                self.note.sprite.surface = sdl2.ext.load_image("approachcircle.png")
+                self.note.sprite.surface = sdl2.ext.load_image(self.circle_im)
 
             if self.is_active:
                 if self.time + self.ar == self.note.timer.get_ticks():
@@ -151,22 +139,43 @@ class Note(sdl2.ext.Applicator):
                     self.is_active = False
                     self.note.world.delete(self.note)
                     self.flag = False
-                    # b = sdl2.ext.Color(0xff, 0xff, 0xff)
-                    # SDL_SetColorKey(self.note.sprite.surface, sdl2.SDL_TRUE, b)
                 else:
                     buttonstate = sdl2.mouse.SDL_GetMouseState(ctypes.byref(self.x), ctypes.byref(self.y))
                     if buttonstate:
                         self.check()
 
 
+    def draw_circle(self):
+        sp = []
+        image = Image.open('approachcircle.png')
+        size = image.size
+        pix = image.load()
+        image2 = Image.new("RGB", size)
+        for x in range(size[0]):
+            for y in range(size[1]):
+                image2.putpixel([x, y], pix[x, y])
+        image2.save("approachcircle2.png")
+        return "approachcircle2.png"
 
 
+class Menu_app(sdl2.ext.Applicator):
+    def __init__(self):
+        super().__init__()
+        self.componenttypes = Menu_sp, sdl2.ext.Sprite
 
+    def process(self, world, componentsets):
+        pass
+
+
+class Menu_sp(sdl2.ext.Entity):
+    def __init__(self, world, sprite, posx, posy):
+        self.sprite = sprite
+        self.sprite.position = posx, posy
 
 
 def run():
     sdl2.ext.init()
-    window = sdl2.ext.Window("The Pong Game", size=(1600, 900))
+    window = sdl2.ext.Window("Osu", size=(1600, 900))
     menu = sdl2.ext.World()
     gameplay = sdl2.ext.World()
 
@@ -175,13 +184,18 @@ def run():
     gameplay.add_system(spriterenderer)
     window.show()
     running = True
-    state = sdl2.mouse.SDL_GetMouseState(None, None)
 
+    lvl_1 = Menu_app()
+    menu.add_system(lvl_1)
+    texture = sdl2.ext.load_image("1.png")
+    factory = sdl2.ext.SpriteFactory(sdl2.ext.SOFTWARE)
+    menu_pic = factory.from_surface(texture)
+    Menu_sp = note_sprite(menu, menu_pic, 50, 50)
+    lvl_1.sp = Menu_sp
     # print(note.note.sprite.x)
 
     while running:
         events = sdl2.ext.get_events()
-
         for event in events:
             if event.key.keysym.sym == sdl2.SDLK_q:
                 game_process(gameplay)
