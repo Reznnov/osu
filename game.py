@@ -1,59 +1,35 @@
+import ctypes
 import sys
+from ctypes.wintypes import RGB
+
 import sdl2
 import sdl2.ext
-import sdl2.sdlgfx
 import os
-from PIL import Image, ImageDraw
+
+from numpy.core import uint32
+from sdl2 import surface, SDL_GetColorKey, SDL_SetColorKey
 from sdl2.ext.compat import isiterable
+from sdl2.sdlimage import IMG_Load
+from PIL import Image
 
 
-
-class Window:
-    def __init__(self, size, name):
-        self.size = size
-        self.name = name
-        self.window = sdl2.ext.Window(self.name, size=self.size)
-
-    def fill_Window(self, color):
-        r, g, b = color
-        COLOR = sdl2.ext.Color(r, g, b)
-        sdl2.ext.fill(self.window.get_surface(), COLOR)
-
-    def d1_point(self, x, y, surface, color):
-        r, g, b = color
-        WHITE = sdl2.ext.Color(r, g, b)
-        pixelview = sdl2.ext.PixelView(surface)
-        pixelview[y][x] = WHITE
-
-    def draw_you_win(self, i, j, color=None):
-        sp = []
-        image = Image.open('approachcircle.png')
-        size = image.size
-        pix = image.load()
-        for x in range(size[0]):
-            for y in range(size[1]):
-                if color == None:
-                    Window.d1_point(self, x + i, y + j, self.window.get_surface(), pix[x, y][:3])
-                else:
-                    Window.d1_point(self, x + i, y + j, self.window.get_surface(), color)
-
-    def run_1(self):
-        sdl2.ext.init()
-        self.window.show()
-        running = True
-        flag = True
-        Window.draw_you_win(self, 100, 100, None)
-        time = sdl2.timer.SDL_GetTicks() / 1000
-        print(time)
-        if round(time) == 4 and flag is True:
-            Window.draw_you_win(self, 100, 100, (0, 0, 0))
-        while running:
-            events = sdl2.ext.get_events()
-            for event in events:
-                if event.type == sdl2.SDL_QUIT:
-                    running = False
-                    break
-            self.window.refresh()
+def load_image(name, colorkey=None, convert=None):
+    fullname = os.path.join(name)
+    # если файл не существует, то выходим
+    if not os.path.isfile(fullname):
+        print(f"Файл с изображением '{fullname}' не найден")
+        sys.exit()
+    image = sdl2.ext.load_image(fullname)
+    # if colorkey is not None:
+    #     image = image.convert()
+    #     if colorkey == -1:
+    #         colorkey = image.get_at((0, 0))
+    #     image.set_colorkey(colorkey)
+    # else:
+    #     image = image.convert_alpha()
+    # if convert is not None:
+    #     image = pygame.transform.scale(image, convert)
+    return image
 
 
 class SoftwareRenderer(sdl2.ext.SoftwareSpriteRenderSystem):
@@ -68,6 +44,82 @@ class SoftwareRenderer(sdl2.ext.SoftwareSpriteRenderSystem):
 class song():
     pass
 
+class Menu:
+    def __init__(self, Window):
+        self.window = Window
+
+    def d1_point(self, x, y, surface, color):
+        r, g, b = color
+        WHITE = sdl2.ext.Color(r, g, b)
+        pixelview = sdl2.ext.PixelView(surface)
+        pixelview[y][x] = WHITE
+
+    def draw_menu1(self, i, j, color=None):
+        image = Image.open('1.png')
+        size = image.size
+        pix = image.load()
+        for x in range(size[0]):
+            for y in range(size[1]):
+                if color == None:
+                    Menu.d1_point(self, x + i, y + j, self.window.get_surface(), pix[x, y][:3])
+                else:
+                    Menu.d1_point(self, x + i, y + j, self.window.get_surface(), (0, 0, 0))
+
+
+
+class game_process():
+    def __init__(self, world):
+        self.draw_you_win()
+        # f = map(open("map.txt").read().split(), int)
+        f = [[3], [5], [7], [8]]
+        ar = 3
+        n = []
+        timer = Timer()
+
+        for i in f:
+            note = Note(i[0], ar)
+            world.add_system(note)
+            texture = sdl2.ext.load_image("approachcircle2.png")
+            b = sdl2.ext.Color(0xff, 0xff, 0xff)
+            SDL_SetColorKey(texture, sdl2.SDL_TRUE, b)
+            factory = sdl2.ext.SpriteFactory(sdl2.ext.SOFTWARE)
+            note_pic = factory.from_surface(texture)
+            note_sp = note_sprite(world, note_pic, posx=(100 + i[0] * 100), posy=(900 - i[0] * 100))
+            note_sp.timer = timer
+            note.note = note_sp
+
+        running = True
+        while running:
+            events = sdl2.ext.get_events()
+            for event in events:
+                motion = None
+                if event.type == sdl2.SDL_MOUSEBUTTONDOWN:
+                    pass
+                    # motion = event.motion
+                    # print(motion.x, motion.y)
+                    # print(sdl2.timer.SDL_GetTicks() / 1000)
+                if event.key.keysym.sym == sdl2.SDLK_r:
+                    running = False
+                    break
+                if event.type == sdl2.SDL_QUIT:
+                    running = False
+                    break
+            world.process()
+
+
+    def draw_you_win(self):
+        sp = []
+        image = Image.open('approachcircle.png')
+        size = image.size
+        print(size)
+        pix = image.load()
+        image2 = Image.new("RGB", size)
+        for x in range(size[0]):
+            for y in range(size[1]):
+                if pix[x, y] == (255, 255, 255, 255):
+                    image2.putpixel([x, y], (255, 255, 255, 255))
+        image2.save("approachcircle2.png")
+
 
 class note_sprite(sdl2.ext.Entity):
     def __init__(self, world, sprite, posx=100, posy=100):
@@ -75,127 +127,89 @@ class note_sprite(sdl2.ext.Entity):
         self.sprite.position = posx, posy
 
 
-class Velocity(object):
-    def __init__(self):
-        super(Velocity, self).__init__()
-        self.vx = 0
-        self.vy = 0
 
-
-class Note(sdl2.ext.Applicator):
+class Timer(object):
     def __init__(self):
         super().__init__()
-        print(self.componenttypes)
-        self.componenttypes = note_sprite, sdl2.ext.Sprite
-        print(self.componenttypes)
-
-    def start_timer(self):
         self.status = True
         self.paused = False
         self.startTicks = sdl2.timer.SDL_GetTicks()
 
-    # def stop(self):
-    #     self.status = False
-    #     self.paused = False
+    def stop(self):
+        self.status = False
+        self.paused = False
 
     def get_ticks(self):
-        return sdl2.timer.SDL_GetTicks() - self.startTicks
+        return (sdl2.timer.SDL_GetTicks() - self.startTicks) // 1000
+
+
+class Note(sdl2.ext.Applicator):
+    def __init__(self, time, ar):
+        super().__init__()
+        self.componenttypes = Timer, note_sprite, sdl2.ext.Sprite
+        self.note = None
+        self.time = time
+        self.is_active = False
+        self.ar = ar
+        self.x, self.y = ctypes.c_int(0), ctypes.c_int(0)
+        self.flag = True
+
+    def check(self):
+        rx = self.x.value - (self.note.sprite.x + 70)
+        ry = self.y.value - (self.note.sprite.y + 70)
+        print(rx, ry)
+        if (rx ** 2 + ry ** 2) < 1400:
+            self.note.sprite.surface = sdl2.ext.load_image("hit300.png")
 
     def process(self, world, componentsets):
-        collitems = [comp for comp in componentsets if self._overlap(comp)]
-        #print(collitems)
-        for sprite in componentsets:
-            print(sprite)
-            print("smh")
-            sprite.x += 50
+        if self.flag:
+            if self.time == self.note.timer.get_ticks() and not self.is_active:
+                self.is_active = True
+                self.note.sprite.surface = sdl2.ext.load_image("approachcircle.png")
 
-class PlayerData(object):
-    def __init__(self):
-        super(PlayerData, self).__init__()
-        self.ai = False
-
-
-class Player(sdl2.ext.Entity):
-    def __init__(self, world, sprite, posx=0, posy=0, ai=False):
-        self.sprite = sprite
-        self.sprite.position = posx, posy
-        self.velocity = Velocity()
-        self.playerdata = PlayerData()
-        self.playerdata.ai = ai
+            if self.is_active:
+                if self.time + self.ar == self.note.timer.get_ticks():
+                    print("False")
+                    self.is_active = False
+                    self.note.world.delete(self.note)
+                    self.flag = False
+                    # b = sdl2.ext.Color(0xff, 0xff, 0xff)
+                    # SDL_SetColorKey(self.note.sprite.surface, sdl2.SDL_TRUE, b)
+                else:
+                    buttonstate = sdl2.mouse.SDL_GetMouseState(ctypes.byref(self.x), ctypes.byref(self.y))
+                    if buttonstate:
+                        self.check()
 
 
-class game_pr():
-    def suka(self, world, window):
-        note = Note()
-        world.add_system(note)
-        sdl2.ext.init()
-        factory = sdl2.ext.SpriteFactory(sdl2.ext.SOFTWARE)
-        running = True
-        flag = True
-        while running:
-            events = sdl2.ext.get_events()
-            note.start_timer()
-            time = sdl2.timer.SDL_GetTicks() / 1000
-            events = sdl2.ext.get_events()
-            for event in events:
-                if event.key.keysym.sym == sdl2.SDLK_w:
-                    Window.run_1()
-                if event.key.keysym.sym == sdl2.SDLK_z:
-                    note.start_timer()
-                    print("n")
-                if event.type == sdl2.SDL_MOUSEBUTTONDOWN:
-                    motion = event.motion
-                    print(motion.x, motion.y)
-                    print(sdl2.timer.SDL_GetTicks() / 1000)
-                    print(note.get_ticks() / 1000)
-                if event.key.keysym.sym == sdl2.SDLK_m:
-                    running = False
-                    break
-                if event.type == sdl2.SDL_QUIT:
-                    running = False
-                    break
-            world.process()
-        return None
+
+
+
 
 
 def run():
+    sdl2.ext.init()
     window = sdl2.ext.Window("The Pong Game", size=(1600, 900))
     menu = sdl2.ext.World()
-    world = sdl2.ext.World()
+    gameplay = sdl2.ext.World()
 
-
-    note = Note()
     spriterenderer = SoftwareRenderer(window)
     menu.add_system(spriterenderer)
-    world.add_system(spriterenderer)
-    menu.add_system(note)
-    world.add_system(note)
+    gameplay.add_system(spriterenderer)
+    lvl_1 = Menu(window)
 
-
-    factory = sdl2.ext.SpriteFactory(sdl2.ext.SOFTWARE)
-    lvl_1 = factory.from_image("lvl_1.png")
-    note_sp = note_sprite(menu, lvl_1)
+    window.show()
+    lvl_1.draw_menu1(500, 50)
     running = True
     state = sdl2.mouse.SDL_GetMouseState(None, None)
 
-    menu_high = Player(menu, lvl_1, 50, 150)
-    sdl2.ext.init()
-    window.show()
+    # print(note.note.sprite.x)
 
     while running:
         events = sdl2.ext.get_events()
 
         for event in events:
-            if event.key.keysym.sym == sdl2.SDLK_z:
-                note.start_timer()
-                print("n")
             if event.key.keysym.sym == sdl2.SDLK_q:
-                game_pr(world, window)
-            if event.type == sdl2.SDL_MOUSEBUTTONDOWN:
-                motion = event.motion
-                print(motion.x, motion.y)
-                if motion.x >= 589 and motion.x <= 1429 and motion.y >= 218 and motion.y <= 423:
-                    game_pr.suka(world, window)
+                game_process(gameplay)
             if event.type == sdl2.SDL_QUIT:
                 running = False
                 break
@@ -206,4 +220,3 @@ def run():
 
 if __name__ == "__main__":
     sys.exit(run())
-
