@@ -1,6 +1,6 @@
 import ctypes
 import sys
-
+import pygame as pg
 import sdl2
 import sdl2.ext
 import os
@@ -9,25 +9,6 @@ from sdl2 import surface, SDL_GetColorKey, SDL_SetColorKey
 from sdl2.ext.compat import isiterable
 from sdl2.sdlimage import IMG_Load
 from PIL import Image
-
-
-def load_image(name, colorkey=None, convert=None):
-    fullname = os.path.join(name)
-    # если файл не существует, то выходим
-    if not os.path.isfile(fullname):
-        print(f"Файл с изображением '{fullname}' не найден")
-        sys.exit()
-    image = sdl2.ext.load_image(fullname)
-    # if colorkey is not None:
-    #     image = image.convert()
-    #     if colorkey == -1:
-    #         colorkey = image.get_at((0, 0))
-    #     image.set_colorkey(colorkey)
-    # else:
-    #     image = image.convert_alpha()
-    # if convert is not None:
-    #     image = pygame.transform.scale(image, convert)
-    return image
 
 
 class SoftwareRenderer(sdl2.ext.SoftwareSpriteRenderSystem):
@@ -45,25 +26,25 @@ class song():
 
 class game_process():
     def __init__(self, world):
-        self.draw_you_win()
         # f = map(open("map.txt").read().split(), int)
-        f = [[3], [5], [7], [8]]
+        f = [[1, 300, 100], [3, 600, 450], [5, 400, 200], [7, 900, 500], [6, 300, 500]]
         ar = 3
         n = []
         timer = Timer()
 
+        image2 = Image.new("RGB", (1, 1), (0, 0, 0))
+        image2.save("pix.png")
         for i in f:
             note = Note(i[0], ar)
             world.add_system(note)
-            texture = sdl2.ext.load_image("approachcircle2.png")
-            b = sdl2.ext.Color(0xff, 0xff, 0xff)
-            SDL_SetColorKey(texture, sdl2.SDL_TRUE, b)
+            texture = sdl2.ext.load_image("pix.png")
             factory = sdl2.ext.SpriteFactory(sdl2.ext.SOFTWARE)
             note_pic = factory.from_surface(texture)
-            note_sp = note_sprite(world, note_pic, posx=(100 + i[0] * 100), posy=(900 - i[0] * 100))
+            note_sp = note_sprite(world, note_pic, posx=i[1], posy=i[2])
             note_sp.timer = timer
             note.note = note_sp
-
+        pg.mixer.music.play()
+        pg.mixer.music.set_volume(0.1)
         running = True
         while running:
             events = sdl2.ext.get_events()
@@ -83,14 +64,10 @@ class game_process():
             world.process()
 
 
-
-
-
 class note_sprite(sdl2.ext.Entity):
     def __init__(self, world, sprite, posx=100, posy=100):
         self.sprite = sprite
         self.sprite.position = posx, posy
-
 
 
 class Timer(object):
@@ -117,15 +94,16 @@ class Note(sdl2.ext.Applicator):
         self.is_active = False
         self.ar = ar
         self.x, self.y = ctypes.c_int(0), ctypes.c_int(0)
-        self.flag = True
+        self.flag, self.flag1 = True, True
         self.circle_im = self.draw_circle()
 
     def check(self):
         rx = self.x.value - (self.note.sprite.x + 70)
         ry = self.y.value - (self.note.sprite.y + 70)
-        print(rx, ry)
         if (rx ** 2 + ry ** 2) < 1400:
             self.note.sprite.surface = sdl2.ext.load_image("hit300.png")
+            self.ar = (self.note.timer.get_ticks() + 1) - self.time
+            self.flag1 = False
 
     def process(self, world, componentsets):
         if self.flag:
@@ -135,11 +113,10 @@ class Note(sdl2.ext.Applicator):
 
             if self.is_active:
                 if self.time + self.ar == self.note.timer.get_ticks():
-                    print("False")
                     self.is_active = False
                     self.note.world.delete(self.note)
                     self.flag = False
-                else:
+                elif self.flag1:
                     buttonstate = sdl2.mouse.SDL_GetMouseState(ctypes.byref(self.x), ctypes.byref(self.y))
                     if buttonstate:
                         self.check()
@@ -193,6 +170,8 @@ def run():
     Menu_sp = note_sprite(menu, menu_pic, 50, 50)
     lvl_1.sp = Menu_sp
     # print(note.note.sprite.x)
+    pg.init()
+    pg.mixer.music.load('audio.wav')
 
     while running:
         events = sdl2.ext.get_events()
